@@ -1,0 +1,990 @@
+---
+title: "Summer2024"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+plot(cars)
+library(ggplot2)
+# IMPORTANT NOTICE I SWITCHED UP SSPB VARIANT AND THE WT QUITE OFTEN IN THE CODE AND WAS TO LAZY TO CHANGE EVERYTHING PLEASE REFER TO MY RESULTS TO CONFIDENTLY SEE WHICH IS WHICH 
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Create a data frame from your data
+data <- data.frame(
+  condition = rep(c("Condition 1", "Condition 2", "Condition 3", "Condition 4", "Condition 5"), each = 4),
+  type = rep(c("WT sspB Gfp-DAS+4", "WT sspB control", "Delta sspB Gfp-DAS+4", "Delta sspB control"), 5),
+  value1 = c(13041.12441, 9103.097345, 4673.633441, 3230.810521, 6744.186047, 10994.40299, 13445.17544, 25902.57353, 6025.553663, 33921.98582, 53879.09836, 56021.31783, 6982.638889, 33358.36177, 49679.48718, 50925.39964, 10710.8209, 6157.142857, 15712.64368, 30537.83231),
+  value2 = c(32478.83065, 61210.2649, 65299.36306, 51852.98103, 26864.58333, 93955.90143, 115949.9264, 117550.7937, 15047.2879, 29121.50838, 38312.61101, 44891.45497, 17905.6338, 40519.60784, 117675.6353, 108083.2025, 4571.24183, 15480, 22696.22332, 50812.16458),
+  value3 = c(13240.884793, 73684.65909, 45101.67715, 37604.58766, 5455.319149, 65130.289037, 80260.98901, 125201.7544, 16911.16173, 2525.179856, 5991.803279, 65954.3727, 37646.19165, 42683.99168, 63061.08597, 121314.7059, 7645.021645, 17386.13861, 36739.79592, 93535.82555)
+)
+
+# Calculate the mean and standard deviation for each group
+data_summary <- data %>%
+  group_by(condition, type) %>%
+  summarise(mean = mean(c(value1, value2, value3), na.rm = TRUE), 
+             sd = sd(c(value1, value2, value3), na.rm = TRUE))
+summary(data_summary)
+
+# Create a new column to determine the color
+data_summary$color <- ifelse(data_summary$type == "WT sspB Gfp-DAS+4", "gray80",
+                             ifelse(data_summary$type == "WT sspB control", "gray60",
+                                    ifelse(data_summary$type == "Delta sspB Gfp-DAS+4", "gray40", "white")))
+
+# Create the plot with error bars
+ggplot(data_summary, aes(x = type, y = mean, fill = color)) + 
+  geom_col(position = position_dodge(0.9), color = "black") + 
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd, group = type), 
+                position = position_dodge(0.9), width = 0.2, 
+                linetype = "solid", size = 0.5, color = "black") + 
+  facet_wrap(~ condition, scales = "free_y") + 
+  labs(x = "", y = "Mean Value", fill = "Type of Experiment") + 
+  theme_classic() +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(family = "Times")) +
+  
+  scale_fill_manual(values = c("gray80", "gray60", "gray40", "white")) +
+  ylim(0, max(c(data_summary$mean + data_summary$sd)) * 1.1)
+```
+
+
+```{r}
+# outlier story, Create the dataframe
+data <- data.frame( Fluorescence = c(81969, 89759, 101901, 112418, 134857, 142262, 150626, 159553, 82254, 108069, 133610, 153401, 146361, 167046, 186803, 198798, 203494, 70847, 89603, 107970, 178640, 91082, 100856, 116939, 135789, 156236, 168648, 176964, 174469, 178983, 188503), 
+                    Absorbance = c(1.988, 1.301, 0.842, 0.526, 0.235, 0.17, 0.097, 0.046, 1.27, 0.834, 0.487, 0.338, 0.371, 0.276, 0.154, 0.086, 0.061, 1.787, 0.996, 0.69, 0.047, 1.711, 1.114, 0.643, 0.379, 0.202, 0.139, 0.089, 0.079, 0.057, 0.046) )
+
+# Create the plot
+library(ggplot2)
+
+ggplot(data, aes(x = Absorbance, y = Fluorescence)) + geom_point() + geom_smooth(method = "loess", se = TRUE) + labs(x = "Absorbance (OD)", y = "Fluorescence") + theme_classic()
+
+# Fit the non-linear model
+nls_model <- nls(Fluorescence ~ a * log(Absorbance) + b, data = data, start = list(a = 10000, b = 10000))
+
+ggplot(data, aes(x = Absorbance, y = Fluorescence)) +
+  geom_point() +
+  geom_line(data = curve_data, aes(x = Absorbance, y = Fluorescence), color = "red") +
+  geom_ribbon(data = curve_data, aes(x = Absorbance, ymin = lower_ci, ymax = upper_ci), 
+              fill = "grey", alpha = 0.2) +
+  geom_text(x = 0.5, y = 200000, label = paste("Fluorescence =", round(coef(nls_model)[1], 2), "* Absorbance^", round(coef(nls_model)[2], 2)), parse = TRUE) +
+  labs(x = "Absorbance (OD)", y = "Fluorescence") +
+  theme_classic()
+summary(nls_model)
+```
+```{r}
+#Background final first experiment
+#Create the new dataframe
+data <- data.frame(
+  Absorbance = c(0.046, 0.046, 0.047, 0.057, 0.061, 0.079, 0.086, 0.089, 0.097, 0.101, 0.125, 0.139, 0.154, 0.17, 0.202, 0.208, 0.235, 0.235, 0.276, 0.338, 0.371, 0.379, 0.38, 0.392, 0.415, 0.487, 0.525, 0.526, 0.532, 0.533, 0.603, 0.643, 0.69, 0.752, 0.834, 0.835, 0.842, 0.996, 1.096, 1.114, 1.27, 1.301, 1.534, 1.711, 1.749, 1.787, 1.988, 2.049, 2.171),
+  Fluorescence = c(159553, 188503, 178640, 178983, 203494, 174469, 198798, 176964, 150626, 128294, 191945, 168648, 186803, 142262, 156236, 120324, 134857, 134857, 167046, 153401, 153401, 135789, 168384, 125570, 133891, 133610, 143416, 112418, 131286, 125916, 108060, 116939, 107970, 113730, 108069, 116258, 101901, 89603, 105048, 100856, 82254, 89759, 117146, 91082, 60956, 70847, 81969, 49343, 95380)
+)
+data2 <- data.frame(
+  abs = c(1.852, 1.848, 1.848, 1.847, 1.846, 1.841, 1.84, 1.836, 1.836, 1.835, 1.834, 1.828, 1.791, 1.414, 1.402, 1.398, 1.364, 1.35, 1.333, 1.269, 1.243, 1.23, 1.198, 1.194, 1.166, 0.801, 0.789, 0.76, 0.747, 0.727, 0.656, 0.633, 0.606, 0.599, 0.594, 0.573, 0.549, 0.535, 0.533, 0.527, 0.519, 0.509, 0.472, 0.449, 0.421, 0.412, 0.392, 0.389, 0.381, 0.363, 0.36, 0.35, 0.333, 0.327, 0.323, 0.298, 0.287, 0.285, 0.276, 0.248, 0.225, 0.22, 0.203, 0.195, 0.192, 0.175, 0.171, 0.163, 0.152, 0.151, 0.147, 0.141, 0.138, 0.129, 0.121, 0.115, 0.108, 0.096, 0.094, 0.085, 0.082, 0.074, 0.072, 0.067, 0.067, 0.059, 0.053, 0.051, 0.05, 0.049, 0.048, 0.047, 0.045, 0.043, 0.042, 0.042, 0.042, 0.042, 0.037, 0.034, 0.033, 0.031, 0.03, 0.029, 0.029, 0.028, 0.026, 0.026, 0.025, 0.024, 0.023, 0.022, 0.022, 0.022, 0.019, 0.019, 0.005),
+  fluo = c (91095, 89227, 90565, 91996, 93544, 93773, 95589, 95763, 92276, 87617, 96972, 90834, 93107, 70013, 69664, 69147, 72121, 71139, 70375, 68194, 76655, 76628, 80262, 80427, 78979, 43444, 43336, 43390, 48500, 49391, 49704, 49620, 57244, 46113, 57402, 57542, 46399, 45902, 50442, 59282, 59307, 50383, 57792, 51206, 38415, 51701, 38961, 39604, 52337, 59604, 52920, 59970, 60671, 53527, 43576, 44293, 61929, 62466, 61088, 44905, 59409, 45420, 60243, 52155, 60984, 52550, 52887, 57027, 61727, 57524, 53939, 53519, 69779, 58670, 70375, 53236, 70888, 64018, 71732, 64561, 71733, 65128, 60641, 61451, 53696, 64771, 61614, 54022, 70599, 72981, 54555, 72988, 66407, 59931, 73883, 59199, 66818, 60208,  74200, 73606, 67053 , 59266, 61002,  59467, 65464,  66453, 65454, 74615, 74753, 66730, 65354, 75150, 72098, 75412, 75020, 72284, 72876))
+# Fit the non-linear models
+nls_model <- nls(Fluorescence ~ a * Absorbance^b, data = data, 
+                 start = list(a = 10000, b = -1))
+nls_modelD <- nls(fluo ~ a * sin(b * abs) + c, data = data2, start = list(a = 10000, b = 1, c = 10000))
+
+# Get the summary of the models
+summary(nls_model)
+summary(nls_modelD)
+
+# Generate the curves
+curve_data <- data.frame(Absorbance = seq(min(data$Absorbance), max(data$Absorbance), length.out = 100))
+curve_data$Fluorescence <- predict(nls_model, newdata = curve_data)
+
+curve_data2 <- data.frame(abs = seq(min(data2$abs), max(data2$abs), length.out = 100))
+curve_data2$fluo <- predict(nls_modelD, newdata = curve_data2)
+
+# Calculate the confidence intervals
+
+# Calculate the standard error of the models
+summary_nls_model <- summary(nls_model)
+se <- summary_nls_model$sigma
+
+summary_nls_modelD <- summary(nls_modelD)
+se2 <- summary_nls_modelD$sigma
+
+# Calculate the confidence intervals
+curve_data$lower_ci <- curve_data$Fluorescence - 1.96 * se * sqrt(1 + (curve_data$Absorbance - mean(data$Absorbance))^2 / sum((data$Absorbance - mean(data$Absorbance))^2))
+curve_data$upper_ci <- curve_data$Fluorescence + 1.96 * se * sqrt(1 + (curve_data$Absorbance - mean(data$Absorbance))^2 / sum((data$Absorbance - mean(data$Absorbance))^2))
+
+curve_data2$lower_ci <- curve_data2$fluo - 1.96 * se2 * sqrt(1 + (curve_data2$abs - mean(data2$abs))^2 / sum((data2$abs - mean(data2$abs))^2))
+curve_data2$upper_ci <- curve_data2$fluo + 1.96 * se2 * sqrt(1 + (curve_data2$abs - mean(data2$abs))^2 / sum((data2$abs - mean(data2$abs))^2))
+
+
+
+# Combine the data
+data_combined <- rbind(data.frame(dataset = "1", Absorbance = data$Absorbance, Fluorescence = data$Fluorescence),
+                      data.frame(dataset = "2", Absorbance = data2$abs, Fluorescence = data2$fluo))
+
+# Combine the curve data
+curve_data_combined <- rbind(data.frame(dataset = "1", Absorbance = curve_data$Absorbance, Fluorescence = curve_data$Fluorescence, lower_ci = curve_data$lower_ci, upper_ci = curve_data$upper_ci),
+                            data.frame(dataset = "2", Absorbance = curve_data2$abs, Fluorescence = curve_data2$fluo, lower_ci = curve_data2$lower_ci, upper_ci = curve_data2$upper_ci))
+
+# Create the plot for dataset 1
+ggplot() + 
+  geom_point(data = data, aes(x = Absorbance, y = Fluorescence), color = "blue") + 
+  geom_line(data = curve_data, aes(x = Absorbance, y = Fluorescence), color = "blue") + 
+  geom_ribbon(data = curve_data, aes(x = Absorbance, ymin = lower_ci, ymax = upper_ci), alpha = 0.5, fill = "light blue") + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence") + 
+  theme_classic() + 
+  theme(
+    axis.text = element_text(size = 12)
+)
+
+# Create the plot for dataset 2
+ggplot() + 
+  geom_point(data = data2, aes(x = abs, y = fluo), color = "red") + 
+  geom_line(data = curve_data2, aes(x = abs, y = fluo), color = "#d62728") + 
+  geom_ribbon(data = curve_data2, aes(x = abs, ymin = lower_ci, ymax = upper_ci), alpha = 0.5, fill = "pink") + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence") + 
+  theme_classic() + 
+  theme(
+    axis.text = element_text(size = 12)
+)
+# Create the plot for dataset 2
+
+
+# Create new columns for the ratios
+data$Ratio <- data$Fluorescence / data$Absorbance
+data2$Ratio <- data2$fluo / data2$abs
+
+# Create new data frames for the ratio curves
+# Create new data frames for the ratio curves
+curve_data_ratio <- data.frame(Absorbance = seq(min(data$Absorbance), max(data$Absorbance), length.out = 100))
+curve_data_ratio$Ratio <- predict(nls_model, newdata = curve_data_ratio) / curve_data_ratio$Absorbance
+
+curve_data2_ratio <- data.frame(abs = seq(min(data2$abs), max(data2$abs), length.out = 100))
+curve_data2_ratio$Ratio <- predict(nls_modelD, newdata = curve_data2_ratio) / curve_data2_ratio$abs
+
+# Combine the ratio data
+ratio_data_combined <- rbind(data.frame(dataset = "1", Absorbance = data$Absorbance, Ratio = data$Ratio),
+                             data.frame(dataset = "2", Absorbance = data2$abs, Ratio = data2$Ratio))
+
+curve_ratio_data_combined <- rbind(data.frame(dataset = "1", Absorbance = curve_data_ratio$Absorbance, Ratio = curve_data_ratio$Ratio),
+                                  data.frame(dataset = "2", Absorbance = curve_data2_ratio$abs, Ratio = curve_data2_ratio$Ratio))
+
+# Create the combined plot
+ggplot() + 
+  geom_point(data = ratio_data_combined, aes(x = Absorbance, y = log(Ratio), color = dataset)) + 
+  geom_line(data = curve_ratio_data_combined, aes(x = Absorbance, y = log(Ratio), group = dataset), color = "black") + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence / Absorbance", color = "Dataset") + 
+  theme_grey() + 
+  scale_color_manual(values = c("blue", "red")) + 
+  theme(
+    axis.text.x = element_text(family = "Times"),
+    axis.text.y = element_text(family = "Times")
+  )  + 
+  theme(
+    axis.text = element_text(size = 12)
+)
+```
+```{r}
+#background second experiment
+# Set the working directory
+setwd("~/Desktop/Project")
+
+# Read the Excel file
+library(readxl)
+background <- read.csv("background.csv")
+
+# Print the data
+print(background)
+library(ggplot2)
+
+ggplot(background, aes(x = OD, y = fluo, color = Sample)) + 
+  geom_point() + 
+  labs(x = "OD", y = "Fluorescence", color = "Sample Type") + 
+  scale_color_manual(values = c("WT" = "blue", "delta" = "red")) + 
+  theme_gray() + 
+  theme(
+    axis.text = element_text(size = 12)
+  ) + 
+  scale_x_continuous(breaks = seq(0, 2.6, by = 0.5))
+
+# Fit a logistic growth model to the delta data
+delta_data <- background[background$Sample == "delta", ]
+model <- nls(fluo ~ a / (1 + exp(-(OD - b) / (c * (OD - b)^d))) + e, 
+             data = delta_data, 
+             start = list(a = 100000, b = 1, c = 0.5, d = 1, e = 50000))
+# Get the coefficients of the model
+coefficients <- coef(model)
+print(coefficients)
+
+# Create a sequence of OD values for plotting
+OD_seq <- seq(min(delta_data$OD), max(delta_data$OD), by = 0.01)
+
+# Predict the fluorescence values using the model
+fluo_pred <- predict(model, newdata = data.frame(OD = OD_seq))
+
+# Add the model line to the ggplot
+ggplot(background, aes(x = OD, y = fluo, color = Sample)) + 
+  geom_point() + 
+  geom_line(data = data.frame(OD = OD_seq, fluo = fluo_pred), aes(x = OD, y = fluo), color = "red") + 
+  labs(x = "OD", y = "Fluorescence", color = "Sample Type") + 
+  scale_color_manual(values = c("WT" = "blue", "delta" = "red")) + 
+  theme_gray() + 
+  theme(
+    axis.text = element_text(size = 12)
+  ) + 
+  scale_x_continuous(breaks = seq(0, 2.6, by = 0.5))
+```
+
+
+```{r}
+# Draft backgound 
+# Create the new dataframe
+data <- data.frame(
+  Absorbance = c(0.046, 0.046, 0.047, 0.057, 0.061, 0.079, 0.086, 0.089, 0.097, 0.101, 0.125, 0.139, 0.154, 0.17, 0.202, 0.208, 0.235, 0.235, 0.276, 0.338, 0.371, 0.379, 0.38, 0.392, 0.415, 0.487, 0.525, 0.526, 0.532, 0.533, 0.603, 0.643, 0.69, 0.752, 0.834, 0.835, 0.842, 0.996, 1.096, 1.114, 1.27, 1.301, 1.534, 1.711, 1.749, 1.787, 1.988, 2.049, 2.171),
+  Fluorescence = c(159553, 188503, 178640, 178983, 203494, 174469, 198798, 176964, 150626, 128294, 191945, 168648, 186803, 142262, 156236, 120324, 134857, 134857, 167046, 153401, 153401, 135789, 168384, 125570, 133891, 133610, 143416, 112418, 131286, 125916, 108060, 116939, 107970, 113730, 108069, 116258, 101901, 89603, 105048, 100856, 82254, 89759, 117146, 91082, 60956, 70847, 81969, 49343, 95380)
+)
+data2 <- data.frame(
+  abs = c(1.852, 1.848, 1.848, 1.847, 1.846, 1.841, 1.84, 1.836, 1.836, 1.835, 1.834, 1.828, 1.791, 1.414, 1.402, 1.398, 1.364, 1.35, 1.333, 1.269, 1.243, 1.23, 1.198, 1.194, 1.166, 0.801, 0.789, 0.76, 0.747, 0.727, 0.656, 0.633, 0.606, 0.599, 0.594, 0.573, 0.549, 0.535, 0.533, 0.527, 0.519, 0.509, 0.472, 0.449, 0.421, 0.412, 0.392, 0.389, 0.381, 0.363, 0.36, 0.35, 0.333, 0.327, 0.323, 0.298, 0.287, 0.285, 0.276, 0.248, 0.225, 0.22, 0.203, 0.195, 0.192, 0.175, 0.171, 0.163, 0.152, 0.151, 0.147, 0.141, 0.138, 0.129, 0.121, 0.115, 0.108, 0.096, 0.094, 0.085, 0.082, 0.074, 0.072, 0.067, 0.067, 0.059, 0.053, 0.051, 0.05, 0.049, 0.048, 0.047, 0.045, 0.043, 0.042, 0.042, 0.042, 0.042, 0.037, 0.034, 0.033, 0.031, 0.03, 0.029, 0.029, 0.028, 0.026, 0.026, 0.025, 0.024, 0.023, 0.022, 0.022, 0.022, 0.019, 0.019, 0.005),
+  fluo = c (91095, 89227, 90565, 91996, 93544, 93773, 95589, 95763, 92276, 87617, 96972, 90834, 93107, 70013, 69664, 69147, 72121, 71139, 70375, 68194, 76655, 76628, 80262, 80427, 78979, 43444, 43336, 43390, 48500, 49391, 49704, 49620, 57244, 46113, 57402, 57542, 46399, 45902, 50442, 59282, 59307, 50383, 57792, 51206, 38415, 51701, 38961, 39604, 52337, 59604, 52920, 59970, 60671, 53527, 43576, 44293, 61929, 62466, 61088, 44905, 59409, 45420, 60243, 52155, 60984, 52550, 52887, 57027, 61727, 57524, 53939, 53519, 69779, 58670, 70375, 53236, 70888, 64018, 71732, 64561, 71733, 65128, 60641, 61451, 53696, 64771, 61614, 54022, 70599, 72981, 54555, 72988, 66407, 59931, 73883, 59199, 66818, 60208,  74200, 73606, 67053 , 59266, 61002,  59467, 65464,  66453, 65454, 74615, 74753, 66730, 65354, 75150, 72098, 75412, 75020, 72284, 72876))
+# Fit the non-linear model
+nls_model <- nls(Fluorescence ~ a * Absorbance^b, data = data, 
+                 start = list(a = 10000, b = -1))
+nls_modelD <- nls(fluo ~ a * sin(b * abs) + c, data = data2, start = list(a = 10000, b = 1, c = 10000))
+# Get the summary of the model
+summary(nls_model)
+summary(nls_modelD)
+# Generate the curve
+# Generate the curve
+curve_data <- data.frame(Absorbance = seq(min(data$Absorbance), max(data$Absorbance), length.out = 100))
+curve_data$Fluorescence <- predict(nls_model, newdata = curve_data)
+
+curve_data2 <- data.frame(abs = seq(min(data2$abs), max(data2$abs), length.out = 100))
+curve_data2$fluo <- predict(nls_modelD, newdata = curve_data2)
+
+# Calculate the confidence interval
+curve_data$lower_ci <- curve_data$Fluorescence - 1.96 * se[1] * sqrt(1 + (curve_data$Absorbance - mean(data$Absorbance))^2 / sum((data$Absorbance - mean(data$Absorbance))^2))
+curve_data$upper_ci <- curve_data$Fluorescence + 1.96 * se[1] * sqrt(1 + (curve_data$Absorbance - mean(data$Absorbance))^2 / sum((data$Absorbance - mean(data$Absorbance))^2))
+
+curve_data2$lower_ci <- curve_data2$fluo - 1.96 * se2[1] * sqrt(1 + (curve_data2$abs - mean(data2$abs))^2 / sum((data2$abs - mean(data2$abs))^2))
+curve_data2$upper_ci <- curve_data2$fluo + 1.96 * se2[1] * sqrt(1 + (curve_data2$abs - mean(data2$abs))^2 / sum((data2$abs - mean(data2$abs))^2))
+
+# Plot the data with the confidence interval
+ggplot(data, aes(x = Absorbance, y = Fluorescence)) + 
+  geom_point() + 
+  geom_line(data = curve_data, aes(x = Absorbance, y = Fluorescence), color = "red") + 
+  geom_ribbon(data = curve_data, aes(x = Absorbance, ymin = lower_ci, ymax = upper_ci), fill = "grey80", alpha = 0.5) + 
+  geom_ribbon(data = curve_data, aes(x = Absorbance, ymin = lower_ci, ymax = upper_ci), fill = "light blue", alpha = 0.2) + 
+  annotate("text", x = 1, y = 150000, label = "Fluorescence ~ a * log(Absorbance) + b", parse = TRUE, size = 4) + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence") + 
+  theme_classic()
+
+ggplot(data2, aes(x = abs, y = fluo)) + 
+  geom_point() + 
+  geom_line(data = curve_data2, aes(x = abs, y = fluo), color = "red") + 
+  geom_ribbon(data = curve_data2, aes(x = abs, ymin = lower_ci, ymax = upper_ci), fill = "grey80", alpha = 0.5) + 
+  geom_ribbon(data = curve_data2, aes(x = abs, ymin = lower_ci, ymax = upper_ci), fill = "light blue", alpha = 0.2) + 
+  annotate("text", x = 1, y = 150000, label = "Fluorescence ~ a * log(Absorbance) + b", parse = TRUE, size = 4) + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence") + 
+  theme_classic()
+
+# polynominal nls_modelD <- nls(fluo ~ a * abs^2 + b * abs + c, data = data2, start = list(a = 10000, b = -10000, c = 10000))
+
+# Combine the data
+data_combined <- rbind(data.frame(dataset = "1", Absorbance = data$Absorbance, Fluorescence = data$Fluorescence),
+                      data.frame(dataset = "2", Absorbance = data2$abs, Fluorescence = data2$fluo))
+
+# Combine the curve data
+curve_data_combined <- rbind(data.frame(dataset = "1", Absorbance = curve_data$Absorbance, Fluorescence = curve_data$Fluorescence, lower_ci = curve_data$lower_ci, upper_ci = curve_data$upper_ci),
+                            data.frame(dataset = "2", Absorbance = curve_data2$abs, Fluorescence = curve_data2$fluo, lower_ci = curve_data2$lower_ci, upper_ci = curve_data2$upper_ci))
+
+# Create the plot
+ggplot() + 
+  geom_point(data = data_combined, aes(x = Absorbance, y = Fluorescence, color = dataset)) + 
+  geom_line(data = curve_data_combined, aes(x = Absorbance, y = Fluorescence, color = dataset)) + 
+  geom_ribbon(data = curve_data_combined, aes(x = Absorbance, ymin = lower_ci, ymax = upper_ci, fill = dataset), alpha = 0.5) + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence", color = "Dataset", fill = "Dataset") + 
+  theme_classic() + 
+  scale_color_manual(values = c("blue", "red")) + 
+  scale_fill_manual(values = c("light blue", "pink"))
+
+# Create new columns for the ratios
+data$Ratio <- data$Fluorescence / data$Absorbance
+data2$Ratio <- data2$fluo / data2$abs
+
+# Create new data frames for the ratio curves
+curve_data_ratio <- data.frame(Absorbance = seq(min(data$Absorbance), max(data$Absorbance), length.out = 100))
+curve_data_ratio$Ratio <- predict(nls_model, newdata = curve_data_ratio) / curve_data_ratio$Absorbance
+
+curve_data2_ratio <- data.frame(abs = seq(min(data2$abs), max(data2$abs), length.out = 100))
+curve_data2_ratio$Ratio <- predict(nls_modelD, newdata = curve_data2_ratio) / curve_data2_ratio$abs
+
+# Create the ratio plots
+ggplot(data, aes(x = Absorbance, y = Ratio)) + 
+  geom_point() + 
+  geom_line(data = curve_data_ratio, aes(x = Absorbance, y = Ratio), color = "blue") + 
+  labs(x = "Absorbance (OD)", y = "Fluorescence / Absorbance") + 
+  theme_classic()
+
+ggplot(data2, aes(x = abs, y = Ratio)) + 
+  geom_point() + 
+  geom_line(data = curve_data2_ratio, aes(x = abs, y = Ratio), color = "red") + 
+  labs(x = "Absorbance (OD)", y = "Fluo / Abs") + 
+  theme_classic()
+```
+```{r}
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Create a dataframe from the data
+df <- data.frame(
+  Condition = rep(c("Condition 1", "Condition 2", "Condition 3", "Condition 4"), each = 4),
+  Subcondition = rep(c("0.6>OD>0.5", "0.3>OD>0.2"), 8),
+  Repeat = rep(1:4, 8),
+  Value = c(0.209321997, 0.441900471, 0.881974486, NA,
+    0.580466964, 0.505923114, 0.127885428, NA,
+    1.73957648, 0.29529986, 0.439719354, NA,
+    3.70317358, 9.35738067, -0.088711665, NA,
+    0.613419942, 0.285927578, 0.83756749, 0.28922569,
+    0.65844375, 0.329154881, 0.83756749, 0.778828557,
+    0.177629744, 0.516707023, 6.697012765, 0.441653677,
+    0.773557383, 0.484389945, 0.625652014, 0.830916774
+  )
+)
+
+# Remove rows with missing values
+df <- df[!is.na(df$Value), ]
+
+# Calculate mean and standard deviation for each condition and subcondition
+df_summary <- df %>%
+  group_by(Condition, Subcondition) %>%
+  summarise(
+    Mean = mean(Value),
+    SD = sd(Value)
+  )
+
+# Create plot with error bars
+ggplot(df_summary, aes(x = Condition, y = Mean, color = Subcondition)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = Mean - SD, ymax = Mean + SD), position = position_dodge(width = 0.5), width = 0.2) +
+  labs(x = "Condition", y = "Value", color = "Subcondition") +
+  theme_classic() +
+  theme(
+    panel.background = element_rect(fill = "gray90"),
+    panel.grid.major = element_line(size = 0.5, linetype = "dashed"),
+    panel.grid.minor = element_line(size = 0.5, linetype = "dashed"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  ) +
+  scale_y_continuous(breaks = seq(0, 10, by = 1))
+print(df_summary)
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Time = c(10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75),
+  Sspb_Repeat1 = c(0.87057337, 0.821732868, 0.782774544, 0.749985392, 0.690041004, 0.640883168, 0.472372262, 0.380556461, 0.346432911, 0.308689082, 0.145974153, 0.152497092, 0.105851396, 0.108616337),
+  Sspb_Repeat2 = c(0.963132373, 0.921045509, 0.83951267, 0.794220832, 0.787501097, 0.755530226, 0.614271551, 0.548988762, 0.513587587, 0.47561551, 0.344159958, 0.322894247, 0.297824191, 0.270378856),
+  Sspb_Repeat3 = c(1.012191456, 1.029867708, 0.935745435, 0.886268826, 0.87348336, 0.826021147, 0.693499962, 0.627716732, 0.597620269, 0.568817116, 0.428499422, 0.425478125, 0.382050281, 0.366737148),
+  WT_sspB_Repeat1 = c(0.856327954, 0.817134354, 0.784820311, 0.815042274, 0.870235596, 0.913035277, 0.911496176, 0.727511335, 0.65531809, 0.595591082, 0.442228808, 0.427870968, 0.388175051, 0.364272585),
+  WT_sspB_Repeat2 = c(1.027297616, 0.953179894, 0.966888452, 0.958716402, 0.917764819, 0.763028163, 0.845271987, 0.807167359, 0.751106116, 0.719872686, 0.677348945, 0.630141888, 0.615372033, 0.591963293),
+  WT_sspB_Repeat3 = c(1.038484238, 1.005495605, 0.867844736, 0.818154899, 0.843971718, 0.870737654, 0.740960119, 0.704890362, 0.611563184, 0.640358468, 0.675726632, 0.695083494, 0.338852513, 0.322265499),
+  Delta_sspB_Repeat1 = c(0.924086876, 0.907853394, 0.961566391, 0.978826305, 0.980326069, 0.905575619, 0.958925556, 0.936197475, 0.903427622, 0.946263083, 0.970023153, 1.020043141, 1.006469599, 0.974543391),
+  Delta_sspB_Repeat2 = c(1.024310809, 0.992632881, 0.972373633, 1.002293601, 0.92675721, 1.012444478, 0.996216212, 1.078084608, 1.084690202, 0.907589002, 1.216252766, 1.138622268, 1.119088135, 1.075167186),
+  Delta_sspB_Repeat3 = c(1.150903734, 1.153604314, 1.192505139, 1.178408432, 1.167725097, 1.150064695, 1.087701274, 1.04799795, 1.034023248, 1.047436559, 0.992556612, 0.973867457, 0.914050848, 0.924726688)
+)
+
+
+# Reshape the data from wide to long format
+
+data_long <- data %>%
+  pivot_longer(-Time, names_to = "Group_Repeat", values_to = "Value") %>%
+  separate(Group_Repeat, into = c("Group", "Repeat"), sep = "_Repeat") %>%
+  mutate(Repeat = gsub("Repeat", "", Repeat))
+
+# Calculate the mean and SEM for each group
+data_summary <- data_long %>%
+  group_by(Time, Group) %>%
+  summarise(Mean = mean(Value), SEM = sd(Value) / sqrt(n()))
+
+# Create the plot
+ggplot(data_summary, aes(x = Time, y = Mean, color = Group, shape = Group)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 3) + 
+  geom_errorbar(aes(ymin = Mean - SEM, ymax = Mean + SEM), width = 0.2, position = position_dodge(width = 0.5)) + geom_linerange(aes(ymin = Mean - SEM, ymax = Mean + SEM), size = 1, position = position_dodge(width = 0.2))+
+  scale_color_manual(values = c("Sspb" = "blue", "WT_sspB" = "red", "Delta_sspB" = "dark green")) + 
+  scale_shape_manual(values = c("Sspb" = 15, "WT_sspB" = 19, "Delta_sspB" = 17)) + 
+  labs(x = "Time (hours)", y = "Value (units)", color = "Group", shape = "Group") + 
+  theme_classic() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1), 
+        axis.text.y = element_text(size = 10), 
+        axis.title.x = element_text(size = 12), 
+        axis.title.y = element_text(size = 12), 
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12)) + 
+  scale_x_continuous(breaks = seq(0, 80, by = 5), limits = c(0, 80)) + 
+  scale_y_continuous(breaks = seq(0, 1.2, by = 0.2), limits = c(0, 1.2))
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Create the data frame
+
+data <- data.frame(
+  Time = c(10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75),
+  Sspb_Repeat1 = c(0.922038688, 0.869629525, 0.869629525, 0.870219304, 0.852147285, 0.802053152, 0.709428684, 0.72622471, 0.697916596, 0.667619769, 0.620655082, 0.608766864, 0.589526285, 0.592203679),
+  Sspb_Repeat2 = c(1.01382606, 0.942923041, 0.942923041, 0.879945257, 0.873218638, 0.844824779, 0.773887159, 0.804277905, 0.751487346, 0.74189588, 0.71968213, 0.692433446, 0.619526011, 0.576039874),
+  Sspb_Repeat3 = c(1.05179675, 0.952010623, 0.952010623, 0.937464628, 0.923010142, 0.905488852, 0.873311862, 0.762161899, 0.747295108, 0.713646548, 0.72581989, 0.696301608, 0.610978096, 0.541914293),
+  WT_sspB_Repeat1 = c(0.838028261, 0.874617259, 0.874617259, 0.862588825, 0.873360516, 0.904428422, 0.962016829, 0.951524416, 0.927859606, 0.899243493, 0.838364572, 0.823256131, 0.768927316, 0.749562232),
+  WT_sspB_Repeat2 = c(1.026298989, 0.973252403, 0.973252403, 0.933432292, 0.916504861, 0.894916676, 0.966499037, 0.94743514, 0.89419272, 0.870316661, 0.902154916, 0.841795718, 0.836996776, 0.813207858),
+  WT_sspB_Repeat3 = c(1.082229532, 0.994475795, 0.994475795, 0.999314075, 0.957618186, 0.978725779, 0.93566488, 0.993021278, 0.938412224, 0.920634314, 0.917054718, 0.947131929, 0.797048772, 0.762579203),
+  Delta_sspB_Repeat1 = c(0.921434904, 0.954939703, 0.954939703, 0.960753139, 0.964665135, 0.895124097, 0.945717675, 0.91833296, 0.884212491, 0.940141915, 0.950422745, 1.006778288, 0.988832528, 0.953600958),
+  Delta_sspB_Repeat2 = c(1.031809319, 0.965331711, 0.965331711, 1.003713462, 0.906960869, 1.015539802, 0.994968408, 1.097223025, 1.106854351, 0.875930336, 1.290570277, 1.18666284, 1.152573278, 1.100214926),
+  Delta_sspB_Repeat3 = c(1.15407142, 1.205152661, 1.205152661, 1.201555115, 1.190318916, 1.17076054, 1.111424733, 1.06443688, 1.043588837, 1.057549499, 0.989326994, 0.963906744, 0.889270017, 0.89793367))
+  
+# Reshape the data from wide to long format
+
+# Reshape the data from wide to long format
+data_long <- data %>%
+  pivot_longer(-Time, names_to = "Group_Repeat", values_to = "Value") %>%
+  separate(Group_Repeat, into = c("Group", "Repeat"), sep = "_Repeat") %>%
+  mutate(Repeat = gsub("Repeat", "", Repeat))
+
+# Calculate the mean and SEM for each group
+
+data_summary <- data_long %>%
+  group_by(Time, Group) %>%
+  summarise(Mean = mean(Value), SEM = sd(Value) / sqrt(n()), .groups = "drop")
+
+# Create the plot
+ggplot(data_summary, aes(x = Time, y = Mean, color = Group, shape = Group)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 3) + 
+  geom_errorbar(aes(ymin = Mean - SEM, ymax = Mean + SEM), width = 0.2, position = position_dodge(width = 0.5)) + 
+  geom_linerange(aes(ymin = Mean - SEM, ymax = Mean + SEM), size = 1, position = position_dodge(width = 0.2)) +
+  scale_color_manual(values = c("Sspb" = "blue", "WT_sspB" = "red", "Delta_sspB" = "darkgreen")) + 
+  scale_shape_manual(values = c("Sspb" = 15, "WT_sspB" = 19, "Delta_sspB" = 17)) + 
+  labs(x = "Time (hours)", y = "Value (units)", color = "Group", shape = "Group") + 
+  theme_classic() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1), 
+        axis.text.y = element_text(size = 10), 
+        axis.title.x = element_text(size = 12), 
+        axis.title.y = element_text(size = 12), 
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12)) + 
+  scale_x_continuous(breaks = seq(0, 80, by = 5), limits = c(0, 80)) + 
+  scale_y_continuous(breaks = seq(0, 1.2, by = 0.2), limits = c(0, 1.2))
+
+# Fit exponential decay model to SspB data
+# Fit exponential decay model to SspB data
+SspB_model <- nls(Mean ~ A0 * exp(-k * Time), data = data_summary %>% filter(Group == "Sspb"),
+                  start = list(A0 = 1, k = 0.1))
+
+# Fit exponential decay model to WT data
+WT_model <- nls(Mean ~ A0 * exp(-k * Time), data = data_summary %>% filter(Group == "WT_sspB"),
+                start = list(A0 = 1, k = 0.1))
+
+
+# Extract parameters for SspB
+SspB_A0 <- coef(SspB_model)[1]
+SspB_k <- coef(SspB_model)[2]
+
+
+# Extract parameters for WT
+WT_A0 <- coef(WT_model)[1]
+WT_k <- coef(WT_model)[2]
+
+# Print the parameters
+cat("SspB parameters:\n")
+cat("A0 =", SspB_A0, "\n")
+cat("k =", SspB_k, "\n\n")
+
+cat("WT parameters:\n")
+cat("A0 =", WT_A0, "\n")
+cat("k =", WT_k, "\n")
+
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Time = c(10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75),
+  Sspb_Repeat1 = c(0.92771824, 0.897565638, 0.890504888, 0.891252872, 0.883478889, 0.833768622, 0.83656332, 0.791156966, 0.768842005, 0.744754091, 0.711916153, 0.703579341, 0.696199704, 0.703944399),
+  Sspb_Repeat2 = c(1.026550327, 0.997114973, 0.965954681, 0.900127582, 0.918798222, 0.942244171, 0.911766358, 0.863251109, 0.860179245, 0.837464847, 0.859935212, 0.828886573, 0.834225497, 0.769948731),
+  Sspb_Repeat3 = c(1.063123347, 1.070526552, 1.002669318, 0.995797654, 1.00314008, 0.954764307, 0.94718291, 0.910492677, 0.899351962, 0.861769164, 0.880269142, 0.872019937, 0.806362073, 0.814665235),
+  WT_sspB_Repeat1 = c(0.774132893, 0.752591567, 0.766059414, 0.81877579, 0.876286038, 0.901433013, 1.089100547, 1.046456145, 0.997085178, 0.980209667, 0.934814167, 0.925463258, 0.872824755, 0.8588626),
+  WT_sspB_Repeat2 = c(1.026889977, 0.993698959, 1.023521206, 1.026046634, 0.995932942, 0.938560921, 1.000385417, 0.989499512, 0.939232771, 0.919129044, 0.964906981, 0.906441946, 0.905535646, 0.883689253),
+  WT_sspB_Repeat3 = c(1.236166443, 1.216810487, 1.221169697, 1.171299831, 1.069508456, 0.962073323, 1.073847322, 0.946382575, 0.949071301, 0.947624097, 1.03822138, 1.036495314, 0.867432165, 0.878116149),
+  Delta_sspB_Repeat1 = c(0.923111758, 0.90752818, 0.962348603, 0.983075331, 0.984060699, 0.905279591, 0.960753309, 0.938404826, 0.904227366, 0.945172114, 0.974659856, 1.027264004, 1.014755051, 0.980941156),
+  Delta_sspB_Repeat2 = c(1.025272857, 0.99450725, 0.973082378, 1.004202121, 0.926071361, 1.01184387, 0.997244288, 1.077063154, 1.086422508, 0.898572963, 1.222257734, 1.141090665, 1.122698745, 1.078727709),
+  Delta_sspB_Repeat3 = c(1.154280737, 1.154962653, 1.194800292, 1.178963446, 1.16838435, 1.151020383, 1.086304689, 1.046202344, 1.033530848, 1.04816889, 0.992958776, 0.974577657, 0.913008626, 0.925312931))
+
+
+# Reshape the data from wide to long format
+
+data_long <- data %>%
+  pivot_longer(-Time, names_to = "Group_Repeat", values_to = "Value") %>%
+  separate(Group_Repeat, into = c("Group", "Repeat"), sep = "_Repeat") %>%
+  mutate(Repeat = gsub("Repeat", "", Repeat))
+
+# Calculate the mean and SEM for each group
+```
+
+
+```{r}
+data_summary <- data_long %>%
+  group_by(Time, Group) %>%
+  summarise(Mean = mean(Value), SEM = sd(Value) / sqrt(n()))
+
+# Create the plot
+ggplot(data_summary, aes(x = Time, y = Mean, color = Group, shape = Group)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 3) + 
+  geom_errorbar(aes(ymin = Mean - SEM, ymax = Mean + SEM), width = 0.2, position = position_dodge(width = 0.5)) + geom_linerange(aes(ymin = Mean - SEM, ymax = Mean + SEM), size = 1, position = position_dodge(width = 0.2))+
+  scale_color_manual(values = c( "WT_sspB" = "red", "Sspb" = "blue", "Delta_sspB" = "dark green")) + 
+  scale_shape_manual(values = c("Sspb" = 19, "WT_sspB" = 15, "Delta_sspB" = 17)) + 
+  labs(x = "Time (hours)", y = "Value (units)", color = "Group", shape = "Group") + 
+  theme_classic() + 
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1), 
+        axis.text.y = element_text(size = 10), 
+        axis.title.x = element_text(size = 12), 
+        axis.title.y = element_text(size = 12), 
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12)) + 
+  scale_x_continuous(breaks = seq(0, 80, by = 5), limits = c(0, 80)) + 
+  scale_y_continuous(breaks = seq(0, 1.2, by = 0.2), limits = c(0, 1.2))
+# Fit exponential decay model to SspB data
+SspB_model <- nls(Mean ~ A0 * exp(-k * Time), data = data_summary %>% filter(Group == "Sspb"),
+                  start = list(A0 = 1, k = 0.1))
+
+# Fit exponential decay model to WT data
+WT_model <- nls(Mean ~ A0 * exp(-k * Time), data = data_summary %>% filter(Group == "WT_sspB"),
+                start = list(A0 = 1, k = 0.1))
+
+
+# Extract parameters for SspB
+SspB_A0 <- coef(SspB_model)[1]
+SspB_k <- coef(SspB_model)[2]
+
+
+# Extract parameters for WT
+WT_A0 <- coef(WT_model)[1]
+WT_k <- coef(WT_model)[2]
+
+# Print the parameters
+cat("SspB parameters:\n")
+cat("A0 =", SspB_A0, "\n")
+cat("k =", SspB_k, "\n\n")
+
+cat("WT parameters:\n")
+cat("A0 =", WT_A0, "\n")
+cat("k =", WT_k, "\n")
+
+```
+
+
+```{r}
+setwd("~/Desktop/Project")
+
+data <- read.csv("sspbstar(Plot SIN).csv", header = TRUE)
+
+print(data)
+
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate the average specific activity for each sample and time
+data_avg <- data %>%
+  group_by(Time..min., sample.type) %>%
+  summarise(avg_activity = mean(Specific.activity), 
+            sd_activity = sd(Specific.activity))
+
+# Plot the data with error bars
+ggplot(data_avg, aes(x = Time..min., y = avg_activity, color = sample.type)) + 
+  geom_line() + 
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), width = 0.2) + 
+  labs(x = "Time (min)", y = "Average Specific Activity") + coord_cartesian(ylim = c(0, NA)) +
+  theme_grey()
+
+# plot 2
+ggplot(data_avg, aes(x = Time..min., y = avg_activity, color = sample.type, shape = sample.type)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 2) + 
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), 
+                width = 0.1, size = 0.5, position = position_dodge(width = 0.5)) + 
+  scale_shape_manual(values = c(19, 17, 15)) + 
+  scale_color_brewer(palette = "Set1") + 
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(family = "Times")) +
+  labs(x = "Time (min)", y = "Before treatement Specific Activity / after treatement specific activity") + 
+  coord_cartesian(ylim = c(0.4, 1.4)) +
+  theme_grey()
+# Filter data for SspB and WT
+sspB_data <- data_avg %>% filter(sample.type == "SspB")
+wt_data <- data_avg %>% filter(sample.type == "WT")
+
+# Define the model
+exp_decay_model <- function(t, A0, k) {
+  A0 * exp(-k * t)
+}
+
+# Fit model to SspB data
+sspB_fit <- nls(avg_activity ~ exp_decay_model(Time..min., A0, k), 
+                data = sspB_data, 
+                start = list(A0 = max(sspB_data$avg_activity), k = 0.1))
+
+# Fit model to WT data
+wt_fit <- nls(avg_activity ~ exp_decay_model(Time..min., A0, k), 
+              data = wt_data, 
+              start = list(A0 = max(wt_data$avg_activity), k = 0.1))
+# Extract parameters for SspB
+sspB_A0 <- coef(sspB_fit)[1]
+sspB_k <- coef(sspB_fit)[2]
+
+# Extract parameters for WT
+wt_A0 <- coef(wt_fit)[1]
+wt_k <- coef(wt_fit)[2]
+# Calculate half-life for SspB
+sspB_t_half <- log(2) / sspB_k
+
+# Calculate half-life for WT
+wt_t_half <- log(2) / wt_k
+
+print(sspB_A0)
+print(sspB_k)
+print(sspB_t_half)
+print(wt_A0)
+print(wt_k)
+print(wt_t_half)
+# Plot the data with error bars
+ggplot(data_avg, aes(x = Time..min., y = avg_activity, color = sample.type)) + 
+  geom_line() + 
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), width = 0.8) + 
+  labs(x = "Time (min)", y = "Average Specific Activity") + 
+  coord_cartesian(ylim = c(0, NA)) + 
+  theme_grey() + 
+  geom_line(data = data.frame(Time..min. = sspB_data$Time..min., 
+                              avg_activity = predict(sspB_fit, sspB_data)), 
+            aes(x = Time..min., y = avg_activity), color = "green") + 
+  geom_line(data = data.frame(Time..min. = wt_data$Time..min., 
+                              avg_activity = predict(wt_fit, wt_data)), 
+            aes(x = Time..min., y = avg_activity), color = "blue")
+```
+```{r}
+library(ggplot2)
+library(ggplot2)
+
+ggplot(data_avg, aes(x = Time..min., y = avg_activity, color = sample.type, shape = sample.type)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 2) + 
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), 
+                width = 0.1, size = 0.5, position = position_dodge(width = 0.5)) + 
+  scale_shape_manual(values = c(19, 17, 15)) + 
+  scale_color_brewer(palette = "Set1") + 
+  scale_y_continuous(limits=c(0,1.4), expand=c(0,0)) + 
+  theme(axis.text.x = element_blank(), axis.text.y = element_text(family = "Times")) + 
+  labs(x = "Time (min)", y = "Before treatement Specific Activity / after treatement specific activity") + 
+  coord_cartesian(ylim = c(0, NA)) + 
+  theme_grey() + 
+  geom_line(aes(x = Time..min., y = 1.121255 * exp(-6.71154310^-3 * Time..min.)), color = "darkgreen") + 
+  geom_line(aes(x = Time..min., y = 1.242247 * exp(-6.42391610^-3 * Time..min.)), color = "blue")
+library(ggplot2)
+
+ggplot(data_avg, aes(x = Time..min., y = avg_activity, color = sample.type, shape = sample.type)) + 
+  geom_line(size = 1) + 
+  geom_point(size = 2) + 
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), 
+                width = 0.1, size = 0.5, position = position_dodge(width = 0.5)) + 
+  scale_shape_manual(values = c(19, 17, 15)) + 
+  scale_color_brewer(palette = "Set1") + 
+  scale_y_continuous(limits=c(0,1.4), expand=c(0,0)) + 
+  theme(axis.text.x = element_blank(), axis.text.y = element_text(family = "Times")) + 
+  labs(x = "Time (min)", y = "Before treatement Specific Activity / after treatement specific activity") + 
+  coord_cartesian(ylim = c(0, NA)) + 
+  theme_grey() + 
+  geom_smooth(aes(x = Time..min., y = 1.121255 * exp(-6.71154310^-3 * Time..min.)), 
+              method = "loess", se = FALSE, color = "darkgreen") + 
+  geom_smooth(aes(x = Time..min., y = 1.242247 * exp(-6.42391610^-3 * Time..min.)), 
+              method = "loess", se = FALSE, color = "blue")
+
+```
+
+```{r}
+# Perform ANOVA test
+anova_result <- aov(avg_activity ~ sample.type, data = data_avg)
+summary(anova_result)
+# Perform t-test between SspB and WT
+t_test_result <- t.test(avg_activity ~ sample.type, data = data_avg, subset = sample.type %in% c("SspB", "WT"))
+summary(t_test_result)
+
+```
+```{r}
+#basline correction
+setwd("~/Desktop/Project")
+
+data <- read.csv("sspbstar(Plot SIN baseline adj).csv", header = TRUE)
+
+print(data)
+```
+```{r}
+# Convert Specific.activity column to numeric
+data$Specific.activity <- as.numeric(data$Specific.activity)
+
+# Calculate mean and standard deviation for each group at each time point
+data_avg <- data %>%
+  group_by(Time..min., sample.type) %>%
+  summarise(avg_activity = mean(Specific.activity), 
+            sd_activity = sd(Specific.activity))
+
+# Fit linear model to data for each group
+sspB_data <- data_avg %>% filter(sample.type == "SspB")
+sspB_fit <- lm(avg_activity ~ Time..min., data = sspB_data)
+
+wt_data <- data_avg %>% filter(sample.type == "WT")
+wt_fit <- lm(avg_activity ~ Time..min., data = wt_data)
+
+# Extract model parameters
+sspB_intercept <- coef(sspB_fit)[1]
+sspB_slope <- coef(sspB_fit)[2]
+wt_intercept <- coef(wt_fit)[1]
+wt_slope <- coef(wt_fit)[2]
+
+# Print model parameters
+print(sspB_intercept)
+print(sspB_slope)
+print(wt_intercept)
+print(wt_slope)
+
+# Create plots with error bars and fitted lines
+library(ggplot2)
+
+# Create a plot for SspB
+SspB_plot <- ggplot(data = data_avg %>% filter(sample.type == "SspB", Time..min. > 20), 
+                    aes(x = Time..min., y = avg_activity, color = "SspB")) +
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), width = 0.2) +
+  geom_point(size = 2) +
+  geom_abline(intercept = sspB_intercept, slope = sspB_slope, color = "blue") + 
+  scale_y_continuous(limits=c(0,0.75), expand=c(0,0)) +
+  labs(x = "Time (minutes)", y = "Specific activity", color = "Sample type") +
+  scale_color_manual(values = "blue") +
+  theme_grey()
+
+# Create a plot for WT
+WT_plot <- ggplot(data = data_avg %>% filter(sample.type == "WT"), 
+                  aes(x = Time..min., y = avg_activity, color = "WT")) +
+  geom_errorbar(aes(ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), width = 0.2) +
+  geom_point(size = 2) +
+  geom_abline(intercept = wt_intercept, slope = wt_slope, color = "dark green") + 
+  scale_y_continuous(limits=c(0,0.75), expand=c(0,0)) +
+  labs(x = "Time (minutes)", y = "Specific activity", color = "Sample type") +
+  scale_color_manual(values = "dark green") +
+  theme_grey()
+
+# Print the plots
+SspB_plot
+WT_plot
+# Perform ANOVA test
+anova_model <- aov(avg_activity ~ sample.type, data = data_avg)
+summary(anova_model)
+
+# Perform t-test between SspB and WT
+t_test <- t.test(avg_activity ~ sample.type, data = data_avg)
+t_test
+
+# Fit the models
+sspB_model <- lm(avg_activity ~ Time..min., 
+                 data = data_avg %>% filter(sample.type == "SspB"))
+
+wt_model <- lm(avg_activity ~ Time..min., 
+               data = data_avg %>% filter(sample.type == "WT"))
+
+# Compare the models
+AIC(sspB_model)
+AIC(wt_model)
+# Fit non-exponential model to data for each group
+sspB_data <- data_avg %>% filter(sample.type == "SspB")
+sspB_nonexp_fit <- nls(avg_activity ~ a * Time..min.^b, data = sspB_data, start = list(a = 1, b = 1))
+
+wt_data <- data_avg %>% filter(sample.type == "WT")
+wt_nonexp_fit <- nls(avg_activity ~ a * Time..min.^b, data = wt_data, start = list(a = 1, b = 1))
+
+# Compare the linear and non-linear models for SspB
+AIC(sspB_fit)
+AIC(sspB_nonexp_fit)
+
+# Compare the linear and non-linear models for WT
+AIC(wt_fit)
+AIC(wt_nonexp_fit)
+
+# Summary of the linear models to get p-values
+sspB_summary <- summary(sspB_fit)
+wt_summary <- summary(wt_fit)
+
+# Print summary to get the p-values for intercept and slope
+print(sspB_summary)
+print(wt_summary)
+
+```
+```{r}
+# Create a function to get prediction intervals
+get_pi <- function(model, x) {
+  pred <- predict(model, newdata = data.frame(Time..min. = x), interval = "prediction", level = 0.95)
+  pi_df <- data.frame(Time..min. = x, 
+                     pred = pred[,1], 
+                     lower = pred[,2], 
+                     upper = pred[,3])
+  return(pi_df)
+}
+
+# Get prediction intervals for SspB and WT
+SspB_pi <- get_pi(sspB_model, x = data_avg$Time..min.[data_avg$sample.type == "SspB"])
+WT_pi <- get_pi(wt_model, x = data_avg$Time..min.[data_avg$sample.type == "WT"])
+
+# Create plots for SspB and WT
+SspB_plot <- ggplot() + 
+  geom_line(data = SspB_pi, aes(x = Time..min., y = pred), color = "blue") + 
+  geom_ribbon(data = SspB_pi, aes(x = Time..min., ymin = lower, ymax = upper), alpha = 0.2) + 
+  geom_errorbar(data = data_avg %>% filter(sample.type == "SspB", Time..min. >= 20), 
+                aes(x = Time..min., ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), 
+                width = 0.2, color = "blue") + 
+  geom_point(data = data_avg %>% filter(sample.type == "SspB", Time..min. >= 20), 
+             aes(x = Time..min., y = avg_activity), size = 2, color = "blue") + 
+  scale_y_continuous(limits=c(-0.1,0.8), expand=c(0,0)) +
+  labs(x = "Time (minutes)", y = "Specific activity") +
+  theme_grey() +
+  xlim(20, 105)
+
+WT_plot <- ggplot() + 
+  geom_line(data = WT_pi, aes(x = Time..min., y = pred), color = "dark green") + 
+  geom_ribbon(data = WT_pi, aes(x = Time..min., ymin = lower, ymax = upper), alpha = 0.2) + 
+  geom_errorbar(data = data_avg %>% filter(sample.type == "WT", Time..min. >= 20), 
+                aes(x = Time..min., ymin = avg_activity - sd_activity, ymax = avg_activity + sd_activity), 
+                width = 0.2, color = "dark green") + 
+  geom_point(data = data_avg %>% filter(sample.type == "WT", Time..min. >= 20), 
+             aes(x = Time..min., y = avg_activity), size = 2, color = "dark green") + 
+  scale_y_continuous(limits=c(-0.1,0.8), expand=c(0,0)) + 
+  labs(x = "Time (minutes)", y = "Specific activity") + 
+  theme_grey() + 
+  theme( axis.text = element_text(size = 12) ) + 
+  xlim(20, 105)
+
+# Print the plots
+SspB_plot
+WT_plot
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Define the model
+exp_decay_model <- function(t, A0, k) {
+  A0 * exp(-k * t)
+}
+
+# Fit model to each repeat of SspB and WT
+sspB_fits <- data %>% 
+  filter(sample.type == "SspB") %>% 
+  group_by(Repeat) %>% 
+  do(fit = nls(Specific.activity ~ exp_decay_model(Time..min., A0, k), 
+               data = ., 
+               start = list(A0 = max(.$Specific.activity), k = 0.1)))
+
+wt_fits <- data %>% 
+  filter(sample.type == "WT") %>% 
+  group_by(Repeat) %>% 
+  do(fit = nls(Specific.activity ~ exp_decay_model(Time..min., A0, k), 
+               data = ., 
+               start = list(A0 = max(.$Specific.activity), k = 0.1)))
+
+# Extract parameters for SspB
+sspB_params <- sspB_fits %>% 
+  mutate(A0 = coef(fit)[1], 
+         k = coef(fit)[2], 
+         t_half = log(2) / k) %>% 
+  select(Repeat, A0, k, t_half)
+
+# Extract parameters for WT
+wt_params <- wt_fits %>% 
+  mutate(A0 = coef(fit)[1], 
+         k = coef(fit)[2], 
+         t_half = log(2) / k) %>% 
+  select(Repeat, A0, k, t_half)
+
+# Print parameters
+print(sspB_params)
+print(wt_params)
+
+# Assume you have two data frames, sspB_data and wt_data, with the same structure as the data you provided
+
+# Calculate the average and standard deviation for each factor
+sspB_avg <- colMeans(sspB_params[, 2:4])
+sspB_sd <- apply(sspB_params[, 2:4], 2, sd)
+wt_avg <- colMeans(wt_params[, 2:4])
+wt_sd <- apply(wt_params[, 2:4], 2, sd)
+print(sspB_avg)
+print(wt_avg)
+# Create a data frame for plotting
+plot_data_F0 <- data.frame(
+  Sample = c("SspB", "WT"),
+  Value = c(sspB_avg[1], wt_avg[1]),
+  SD = c(sspB_sd[1], wt_sd[1])
+)
+
+plot_data_k <- data.frame(
+  Sample = c("SspB", "WT"),
+  Value = c(sspB_avg[2], wt_avg[2]),
+  SD = c(sspB_sd[2], wt_sd[2])
+)
+
+plot_data_half_life <- data.frame(
+  Sample = c("SspB", "WT"),
+  Value = c(sspB_avg[3], wt_avg[3]),
+  SD = c(sspB_sd[3], wt_sd[3])
+)
+
+# Create the plots
+ggplot(plot_data_F0, aes(x = Sample, y = Value)) + 
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = Value - SD, ymax = Value + SD), width = 0.2) + 
+  labs(x = "Sample", y = "Average F0") + 
+  theme_grey()
+
+ggplot(plot_data_k, aes(x = Sample, y = Value)) + 
+  geom_bar(stat = "identity") + 
+  geom_errorbar(aes(ymin = Value - SD, ymax = Value + SD), width = 0.2) + 
+  labs(x = "Sample", y = "Average k (min-1)") + 
+  theme_grey()
+
+
+```
+
